@@ -1,0 +1,26 @@
+v = list()
+n = 10
+
+i = n
+while (i > 0):
+    v.append(i)
+    i = i - 1
+
+i = 0
+while (i < n):
+    min = i;
+    j = i + 1;
+    while (j < n):
+        if (v[j] < v[min]):
+            min = j
+        j = j + 1
+    temp = v[i]
+    v[i] = v[min]
+    v[min] = temp
+    i = i + 1
+
+i = 0
+while (i < n):
+    print(v[i])
+    i = i + 1;
+

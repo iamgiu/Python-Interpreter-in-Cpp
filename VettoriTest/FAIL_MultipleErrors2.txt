@@ -1,0 +1,26 @@
+v = list()
+n = 15
+
+i  n
+count = 0
+while (i != 1):
+    q = i // 2
+    m = q * 2
+    r = i - m
+    if (r == 0)
+        i = i // 2
+        v.append(i)
+    else:
+        i = i * 3 + 1
+        v.append i)
+    count = count + 1
+
+i = 0
+sum = 0
+while (i < count):
+    print(v[i])
+    sum = sum + v[i]
+    i = i + 1
+
+print(sum)
+

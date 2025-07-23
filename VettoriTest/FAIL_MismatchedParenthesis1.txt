@@ -1,0 +1,15 @@
+n = 20
+i = 3
+while (i < n):
+    isprime = True
+    d = i // 2
+    while (d > 1 and isprime):
+        ires = i // d
+        nearest = ires * d
+        remainder = i - nearest
+        if (remainder == 0):
+                isprime = False
+        d = d - 1
+    print(i)
+    print(isprime
+    i = i + 1
