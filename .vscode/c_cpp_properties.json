@@ -1,0 +1,19 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "C:\\Users\\righi\\Downloads\\mingw64\\include",
+                "C:\\Users\\righi\\Downloads\\mingw64\\include\\c++\\*",
+                "C:\\Users\\righi\\Downloads\\mingw64\\x86_64-w64-mingw32\\include"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ]
+        }
+    ],
+    "version": 4
+}

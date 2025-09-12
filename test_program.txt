@@ -1,0 +1,15 @@
+x = 42
+y = list()
+y.append(10)
+y.append(20)
+
+if x > 0:
+	print(x)
+	print(y[0])
+
+while x > 0:
+	x = x - 1
+	if x == 40:
+		break
+
+print(x)
