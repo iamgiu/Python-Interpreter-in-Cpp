@@ -53,7 +53,7 @@ void Lexer::advance() {
             atLineStart = true;
         } else {
             column++;
-            if (source[pos] != '\t') {
+            if (source[pos] != '\t' && source[pos] != ' ') { // Aggiungi anche spazi
                 atLineStart = false;
             }
         }
@@ -84,21 +84,37 @@ Token Lexer::makeNumber() {
     int startLine = line;
     int startColumn = column;
     
-    // Primo carattere deve essere [1-9] secondo la specifica
-    if (currentChar() < '1' || currentChar() > '9') {
-        return Token(TokenType::ERROR, "Invalid number", startLine, startColumn);
-    }
+    char firstChar = currentChar();
     
-    numStr += currentChar();
-    advance();
-    
-    // Poi può seguire [0-9]*
-    while (isDigit(currentChar())) {
-        numStr += currentChar();
+    // Se il primo carattere è '0', deve essere l'unico carattere del numero
+    if (firstChar == '0') {
+        numStr += firstChar;
         advance();
+        
+        // Se dopo lo 0 c'è un'altra cifra, è un errore
+        if (isDigit(currentChar())) {
+            return Token(TokenType::ERROR, "Invalid number starting with 0", startLine, startColumn);
+        }
+        
+        return Token(TokenType::NUM, numStr, startLine, startColumn);
     }
     
-    return Token(TokenType::NUM, numStr, startLine, startColumn);
+    // Per numeri che iniziano con [1-9]
+    if (firstChar >= '1' && firstChar <= '9') {
+        numStr += firstChar;
+        advance();
+        
+        // Poi può seguire [0-9]*
+        while (isDigit(currentChar())) {
+            numStr += currentChar();
+            advance();
+        }
+        
+        return Token(TokenType::NUM, numStr, startLine, startColumn);
+    }
+    
+    // Se arriviamo qui, c'è un errore
+    return Token(TokenType::ERROR, "Invalid number", startLine, startColumn);
 }
 
 Token Lexer::makeIdentifier() {
@@ -179,14 +195,36 @@ void Lexer::handleIndentation() {
     
     int indentLevel = 0;
     
-    // Conta le tabulazioni all'inizio della linea
-    while (currentChar() == '\t') {
-        indentLevel++;
-        advance();
+    // Conta tabulazioni E spazi all'inizio della linea
+    while (currentChar() == '\t' || currentChar() == ' ') {
+        if (currentChar() == '\t') {
+            indentLevel++;
+            advance();
+        } else {
+            // Conta 4 spazi come 1 livello di indentazione
+            int spaces = 0;
+            while (currentChar() == ' ' && spaces < 4) {
+                spaces++;
+                advance();
+            }
+            if (spaces == 4) {
+                indentLevel++;
+            } else if (spaces > 0) {
+                // Se ci sono spazi ma non multipli di 4, è un errore
+                tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation: spaces must be multiple of 4", line, column));
+                return;
+            }
+        }
     }
     
     // Se la linea è vuota o è un commento, ignora l'indentazione
     if (currentChar() == '\n' || currentChar() == '\0') {
+        return;
+    }
+    
+    // CONTROLLO DI SICUREZZA: assicurati che lo stack non sia vuoto
+    if (indentStack.empty()) {
+        tokens.push_back(Token(TokenType::ERROR, "Internal error: empty indent stack", line, column));
         return;
     }
     
@@ -203,13 +241,18 @@ void Lexer::handleIndentation() {
             tokens.push_back(Token(TokenType::DEDENT, "", line, column));
         }
         
-        // Controlla che l'indentazione sia consistente
-        if (indentStack.empty() || indentStack.top() != indentLevel) {
+        // Controllo che l'indentazione sia consistente
+        // CONTROLLO DI SICUREZZA: verifica che lo stack non sia vuoto
+        if (indentStack.empty()) {
+            tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation: empty stack", line, column));
+            return;
+        }
+        
+        if (indentStack.top() != indentLevel) {
             tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation", line, column));
             return;
         }
     }
-    // Se indentLevel == currentIndent, non genera nessun token
     
     atLineStart = false;
 }
@@ -226,31 +269,36 @@ std::vector<Token> Lexer::tokenize() {
     tokens.clear();
     
     while (currentChar() != '\0') {
+        char c = currentChar();
+        
         // Gestisci indentazione all'inizio di ogni linea
         if (atLineStart) {
             handleIndentation();
+            // Dopo handleIndentation, riprendi dal carattere corrente
+            c = currentChar();
         }
         
-        char c = currentChar();
+        // Fine del file
+        if (c == '\0') break;
         
-        if (c == ' ') {
-            skipWhitespace();
-            continue;
-        }
-        
+        // Newline
         if (c == '\n') {
             tokens.push_back(Token(TokenType::NEWLINE, "\\n", line, column));
             advance();
             continue;
         }
         
-        if (c == '\t') {
-            advance(); // Le tabulazioni sono gestite in handleIndentation
+        // Spazi (solo dopo l'indentazione)
+        if (c == ' ') {
+            skipWhitespace();
             continue;
         }
         
-        // Numeri [1-9][0-9]*
-        if (c >= '1' && c <= '9') {
+        // Tabulazioni (solo dopo l'indentazione) - RIMUOVI QUESTO BLOCCO
+        // Non dovrebbero esserci tab qui se handleIndentation ha fatto il suo lavoro
+        
+        // Numeri [0-9]
+        if (c >= '0' && c <= '9') {
             tokens.push_back(makeNumber());
             continue;
         }
@@ -284,8 +332,8 @@ std::vector<Token> Lexer::tokenize() {
             case '.': tokens.push_back(Token(TokenType::DOT, ".", startLine, startColumn)); break;
             case ',': tokens.push_back(Token(TokenType::COMMA, ",", startLine, startColumn)); break;
             default: 
-                tokens.push_back(Token(TokenType::ERROR, std::string(1, c), startLine, startColumn));
-                break;
+                tokens.push_back(Token(TokenType::ERROR, "Unexpected character", startLine, startColumn));
+                return tokens; // Ferma subito in caso di errore
         }
     }
     
