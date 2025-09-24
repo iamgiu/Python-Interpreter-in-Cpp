@@ -71,9 +71,7 @@ void Interpreter::visit(ListAccess& node) {
     }
     
     if (static_cast<size_t>(index) >= list.size()) {
-        throw RuntimeError("List index out of range (index: " + 
-                         std::to_string(index) + ", size: " + 
-                         std::to_string(list.size()) + ")");
+        throw RuntimeError("List index out of range");
     }
     
     currentValue = list[index];
@@ -199,8 +197,12 @@ void Interpreter::visit(ContinueStatement& node) {
 void Interpreter::visit(IfStatement& node) {
     Value condition = evaluateExpression(*node.condition);
     
-    // Usa isTruthy() invece di controllare esplicitamente il tipo booleano
-    if (condition.isTruthy()) {
+    // CORREZIONE: La specifica richiede che il tipo sia booleano
+    if (condition.type != Value::BOOLEAN) {
+        throw RuntimeError("if condition must be boolean");
+    }
+    
+    if (condition.getBool()) {
         executeStatement(*node.thenBlock);
         return;
     }
@@ -208,7 +210,10 @@ void Interpreter::visit(IfStatement& node) {
     // Controlla elif clauses
     for (const auto& elif : node.elifClauses) {
         Value elifCondition = evaluateExpression(*elif.condition);
-        if (elifCondition.isTruthy()) {
+        if (elifCondition.type != Value::BOOLEAN) {
+            throw RuntimeError("elif condition must be boolean");
+        }
+        if (elifCondition.getBool()) {
             executeStatement(*elif.body);
             return;
         }
@@ -228,8 +233,12 @@ void Interpreter::visit(WhileStatement& node) {
         while (true) {
             Value condition = evaluateExpression(*node.condition);
             
-            // Usa isTruthy() invece del controllo di tipo
-            if (!condition.isTruthy()) {
+            // CORREZIONE: La specifica richiede che il tipo sia booleano
+            if (condition.type != Value::BOOLEAN) {
+                throw RuntimeError("while condition must be boolean");
+            }
+            
+            if (!condition.getBool()) {
                 break;
             }
             

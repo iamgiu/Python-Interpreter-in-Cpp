@@ -67,17 +67,6 @@ public:
         }
         return "unknown";
     }
-    
-    // Controllo se il valore è "truthy" (per if/while)
-    bool isTruthy() const {
-        switch (type) {
-            case BOOLEAN: return getBool();
-            case INTEGER: return getInt() != 0;
-            case LIST: return !getList().empty();
-            case UNDEFINED: return false;
-        }
-        return false;
-    }
 };
 
 // Eccezione speciale per break/continue

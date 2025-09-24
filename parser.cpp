@@ -1,5 +1,4 @@
 #include "parser.h"
-#include "parser.h"
 #include <iostream>
 
 Parser::Parser(const std::vector<Token>& tokenStream) : tokens(tokenStream), currentPos(0) {
@@ -10,20 +9,19 @@ Parser::Parser(const std::vector<Token>& tokenStream) : tokens(tokenStream), cur
 }
 
 const Token& Parser::currentToken() {
-    // Controllo di sicurezza: se siamo fuori bounds, restituiamo un token di errore
+    // Controllo di sicurezza: se siamo fuori bounds, restituiamo l'ultimo token
     if (currentPos >= tokens.size()) {
-        static Token errorToken(TokenType::ENDMARKER, "EOF", 0, 0);
-        return errorToken;
+        // Restituisce l'ultimo token (dovrebbe essere ENDMARKER)
+        return tokens.back();
     }
     return tokens[currentPos];
 }
 
 const Token& Parser::peekToken(int offset) {
     size_t pos = currentPos + offset;
-    // Controllo di sicurezza: se siamo fuori bounds, restituiamo un token di errore  
+    // Controllo di sicurezza: se siamo fuori bounds, restituiamo l'ultimo token
     if (pos >= tokens.size()) {
-        static Token errorToken(TokenType::ENDMARKER, "EOF", 0, 0);
-        return errorToken;
+        return tokens.back();
     }
     return tokens[pos];
 }
@@ -94,7 +92,6 @@ void Parser::parseStmts(std::vector<std::unique_ptr<Statement>>& statements) {
         
         // Salta eventuali NEWLINE vuoti
         while (check(TokenType::NEWLINE)) {
-            std::cerr << "DEBUG: Skipping empty NEWLINE at position " << currentPos << std::endl;
             advance();
         }
         
@@ -103,7 +100,6 @@ void Parser::parseStmts(std::vector<std::unique_ptr<Statement>>& statements) {
             break;
         }
         
-        std::cerr << "DEBUG: Parsing statement at position " << currentPos << std::endl;
         auto stmt = parseStmt();
         if (stmt) {
             statements.push_back(std::move(stmt));
@@ -121,71 +117,39 @@ std::unique_ptr<Statement> Parser::parseStmt() {
 }
 
 std::unique_ptr<Statement> Parser::parseSimpleStmt() {
-    std::cerr << "DEBUG: parseSimpleStmt() called" << std::endl;
-    std::cerr << "DEBUG: currentPos = " << currentPos << std::endl;
-    std::cerr << "DEBUG: tokens.size() = " << tokens.size() << std::endl;
-    
-    if (currentPos < tokens.size()) {
-        std::cerr << "DEBUG: current token type = " << static_cast<int>(currentToken().type) << std::endl;
-        std::cerr << "DEBUG: current token value = [" << currentToken().value << "]" << std::endl;
-    }
-    
+    // Parsing delle simple statements
     if (check(TokenType::BREAK)) {
-        std::cerr << "DEBUG: Found BREAK" << std::endl;
         return parseBreakStatement();
     } else if (check(TokenType::CONTINUE)) {
-        std::cerr << "DEBUG: Found CONTINUE" << std::endl;
         return parseContinueStatement();
     } else if (check(TokenType::PRINT)) {
-        std::cerr << "DEBUG: Found PRINT" << std::endl;
         return parsePrintStatement();
     } else if (check(TokenType::ID)) {
-        std::cerr << "DEBUG: Found ID: " << currentToken().value << std::endl;
         
-        // Controlla il secondo token
+        // Controlla il secondo token per determinare il tipo di statement
         if (currentPos + 1 < tokens.size()) {
             TokenType secondToken = peekToken().type;
-            std::cerr << "DEBUG: Second token type = " << static_cast<int>(secondToken) << std::endl;
-            std::cerr << "DEBUG: Second token value = [" << peekToken().value << "]" << std::endl;
             
             if (secondToken == TokenType::ASSIGN) {
-                std::cerr << "DEBUG: Found ASSIGN, checking third token..." << std::endl;
-                
-                // Controlla il terzo token
+                // Controlla il terzo token per list creation
                 if (currentPos + 2 < tokens.size()) {
                     TokenType thirdToken = peekToken(2).type;
-                    std::cerr << "DEBUG: Third token type = " << static_cast<int>(thirdToken) << std::endl;
-                    std::cerr << "DEBUG: Third token value = [" << peekToken(2).value << "]" << std::endl;
                     
                     if (thirdToken == TokenType::LIST) {
-                        std::cerr << "DEBUG: Parsing list creation" << std::endl;
                         return parseListCreation();
                     }
                 }
                 
-                std::cerr << "DEBUG: Parsing regular assignment" << std::endl;
                 return parseAssignment();
                 
             } else if (secondToken == TokenType::LBRACKET) {
-                std::cerr << "DEBUG: Found LBRACKET, parsing list assignment" << std::endl;
-                return parseAssignment();
+                return parseAssignment(); // List assignment
             } else if (secondToken == TokenType::DOT) {
-                std::cerr << "DEBUG: Found DOT, parsing list append" << std::endl;
                 return parseListAppend();
-            } else {
-                std::cerr << "DEBUG: Unexpected second token: " << static_cast<int>(secondToken) << std::endl;
             }
-        } else {
-            std::cerr << "DEBUG: No second token available" << std::endl;
-        }
-    } else {
-        std::cerr << "DEBUG: No matching token type found" << std::endl;
-        if (currentPos < tokens.size()) {
-            std::cerr << "DEBUG: Current token type is: " << static_cast<int>(currentToken().type) << std::endl;
         }
     }
     
-    std::cerr << "DEBUG: Throwing ParseError" << std::endl;
     throw ParseError("Unexpected token in simple statement");
 }
 

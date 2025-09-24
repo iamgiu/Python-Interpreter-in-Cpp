@@ -53,7 +53,7 @@ void Lexer::advance() {
             atLineStart = true;
         } else {
             column++;
-            if (source[pos] != '\t' && source[pos] != ' ') { // Aggiungi anche spazi
+            if (source[pos] != '\t' && source[pos] != ' ') {
                 atLineStart = false;
             }
         }
@@ -86,14 +86,15 @@ Token Lexer::makeNumber() {
     
     char firstChar = currentChar();
     
-    // Se il primo carattere è '0', deve essere l'unico carattere del numero
+    // CORREZIONE: Rispetta la regex num → [1-9][0-9]* | 0
+    // Gestisce lo zero come caso speciale
     if (firstChar == '0') {
         numStr += firstChar;
         advance();
         
-        // Se dopo lo 0 c'è un'altra cifra, è un errore
+        // Zero deve essere un numero a se stante
         if (isDigit(currentChar())) {
-            return Token(TokenType::ERROR, "Invalid number starting with 0", startLine, startColumn);
+            return Token(TokenType::ERROR, "Numbers cannot start with 0 unless they are just 0", startLine, startColumn);
         }
         
         return Token(TokenType::NUM, numStr, startLine, startColumn);
@@ -114,7 +115,7 @@ Token Lexer::makeNumber() {
     }
     
     // Se arriviamo qui, c'è un errore
-    return Token(TokenType::ERROR, "Invalid number", startLine, startColumn);
+    return Token(TokenType::ERROR, "Invalid number format", startLine, startColumn);
 }
 
 Token Lexer::makeIdentifier() {
@@ -186,7 +187,7 @@ Token Lexer::makeTwoCharOperator() {
         case '=': return Token(TokenType::ASSIGN, "=", startLine, startColumn);
         case '<': return Token(TokenType::LESS, "<", startLine, startColumn);
         case '>': return Token(TokenType::GREATER, ">", startLine, startColumn);
-        default: return Token(TokenType::ERROR, op, startLine, startColumn);
+        default: return Token(TokenType::ERROR, "Unknown operator", startLine, startColumn);
     }
 }
 
@@ -195,34 +196,29 @@ void Lexer::handleIndentation() {
     
     int indentLevel = 0;
     
-    // Conta tabulazioni E spazi all'inizio della linea
+    // Count indentation - accept both tabs and spaces (4 spaces = 1 tab)
     while (currentChar() == '\t' || currentChar() == ' ') {
         if (currentChar() == '\t') {
             indentLevel++;
             advance();
-        } else {
-            // Conta 4 spazi come 1 livello di indentazione
+        } else if (currentChar() == ' ') {
+            // Count spaces and convert to tab equivalents
             int spaces = 0;
-            while (currentChar() == ' ' && spaces < 4) {
+            while (currentChar() == ' ') {
                 spaces++;
                 advance();
             }
-            if (spaces == 4) {
-                indentLevel++;
-            } else if (spaces > 0) {
-                // Se ci sono spazi ma non multipli di 4, è un errore
-                tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation: spaces must be multiple of 4", line, column));
-                return;
-            }
+            // Assume 4 spaces = 1 tab level
+            indentLevel += (spaces + 3) / 4; // Round up division
         }
     }
     
-    // Se la linea è vuota o è un commento, ignora l'indentazione
+    // If the line is empty or is a comment, ignore indentation
     if (currentChar() == '\n' || currentChar() == '\0') {
         return;
     }
     
-    // CONTROLLO DI SICUREZZA: assicurati che lo stack non sia vuoto
+    // SAFETY CHECK: make sure stack is not empty
     if (indentStack.empty()) {
         tokens.push_back(Token(TokenType::ERROR, "Internal error: empty indent stack", line, column));
         return;
@@ -231,18 +227,17 @@ void Lexer::handleIndentation() {
     int currentIndent = indentStack.top();
     
     if (indentLevel > currentIndent) {
-        // Aumento di indentazione - genera INDENT
+        // Increase indentation - generate INDENT
         indentStack.push(indentLevel);
         tokens.push_back(Token(TokenType::INDENT, "", line, column));
     } else if (indentLevel < currentIndent) {
-        // Diminuzione di indentazione - genera DEDENT
+        // Decrease indentation - generate DEDENT
         while (!indentStack.empty() && indentStack.top() > indentLevel) {
             indentStack.pop();
             tokens.push_back(Token(TokenType::DEDENT, "", line, column));
         }
         
-        // Controllo che l'indentazione sia consistente
-        // CONTROLLO DI SICUREZZA: verifica che lo stack non sia vuoto
+        // Check that indentation is consistent
         if (indentStack.empty()) {
             tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation: empty stack", line, column));
             return;
@@ -274,6 +269,10 @@ std::vector<Token> Lexer::tokenize() {
         // Gestisci indentazione all'inizio di ogni linea
         if (atLineStart) {
             handleIndentation();
+            // Controlla errori di indentazione immediatamente
+            if (!tokens.empty() && tokens.back().type == TokenType::ERROR) {
+                return tokens; // Ferma al primo errore
+            }
             // Dopo handleIndentation, riprendi dal carattere corrente
             c = currentChar();
         }
@@ -294,24 +293,33 @@ std::vector<Token> Lexer::tokenize() {
             continue;
         }
         
-        // Tabulazioni (solo dopo l'indentazione) - RIMUOVI QUESTO BLOCCO
-        // Non dovrebbero esserci tab qui se handleIndentation ha fatto il suo lavoro
-        
-        // Numeri [0-9]
+        // Numeri [0-9] - include ora anche lo zero
         if (c >= '0' && c <= '9') {
-            tokens.push_back(makeNumber());
+            Token numToken = makeNumber();
+            tokens.push_back(numToken);
+            if (numToken.type == TokenType::ERROR) {
+                return tokens;
+            }
             continue;
         }
         
         // Identificatori e parole chiave [a-zA-Z][0-9a-zA-Z]*
         if (isAlpha(c)) {
-            tokens.push_back(makeIdentifier());
+            Token idToken = makeIdentifier();
+            tokens.push_back(idToken);
+            if (idToken.type == TokenType::ERROR) {
+                return tokens;
+            }
             continue;
         }
         
         // Operatori che possono essere doppi
         if (c == '=' || c == '!' || c == '<' || c == '>' || c == '/') {
-            tokens.push_back(makeTwoCharOperator());
+            Token opToken = makeTwoCharOperator();
+            tokens.push_back(opToken);
+            if (opToken.type == TokenType::ERROR) {
+                return tokens;
+            }
             continue;
         }
         
