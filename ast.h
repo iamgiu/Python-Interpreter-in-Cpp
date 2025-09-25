@@ -1,14 +1,32 @@
+/**
+ * Guard Headers
+ * 
+ * Preprocess directives used in C and C++ to prevent the contents of a header file from being included more than once in a single compilation unit
+ */
 #ifndef AST_H
 #define AST_H
 
+/**
+ * Include needed for AST implementation
+ * 
+ * Vector: for dynamic containers
+ * 
+ * Memory: for smart pointers (unique_ptr)
+ * 
+ * String: to handle strings
+ */
 #include <vector>
 #include <memory>
 #include <string>
 
-// Forward declarations
+/**
+ * Advance Declaration so that in case I can use it before having declared it 
+ */
 class ASTVisitor;
 
-// Tipi di dato supportati
+/**
+ * Enum class which defines the data types
+ */
 enum class DataType {
     INTEGER,
     BOOLEAN,
@@ -16,7 +34,15 @@ enum class DataType {
     UNDEFINED
 };
 
-// Classe base per tutti i nodi AST
+/**
+ * Defines the base class for all AST nodes:
+ * 
+ * ~ASTNode(): Virtual destructor for polymorphism
+ * 
+ * accept(ASTVisitor& visitor): each node must accept a visitor for operations
+ * 
+ *  std::string toString(): each node must be able to be converted to a string
+ */
 class ASTNode {
 public:
     virtual ~ASTNode() = default;
@@ -24,17 +50,21 @@ public:
     virtual std::string toString() const = 0;
 };
 
-// Classe base per le espressioni
+/**
+ * Stores the data type of the expression
+ */
 class Expression : public ASTNode {
 public:
     DataType dataType = DataType::UNDEFINED;
 };
 
-// Classe base per le istruzioni
+/**
+ * Base class for instructions
+ * 
+ * It is only used to categorize instructions
+ */
 class Statement : public ASTNode {
 };
-
-// ========== ESPRESSIONI ==========
 
 // Letterale numerico: 42
 class NumberLiteral : public Expression {
