@@ -179,7 +179,7 @@ public:
  * 
  * Stores left operand, operator and right operand
  * 
- * +, -, *, //, <, >, >=, <=, ==, !?, and, or
+ * +, -, *, /, <, >, >=, <=, ==, !?, and, or
  */
 class BinaryOperation : public Expression {
 public:

@@ -1,12 +1,23 @@
+/**
+ * Implementation of the Interpreter class
+ */
 #include "interpreter.h"
 
+/**
+ * Initializes inLoop flag to false
+ */
 Interpreter::Interpreter() : inLoop(false) {}
 
+/**
+ * Esecute the root program node
+ * 
+ * Try to use accept to traverse AST in case of errors it reports them
+ */
 void Interpreter::execute(Program& program) {
     try {
         program.accept(*this);
     } catch (const RuntimeError& e) {
-        throw e; // Rilancia per gestione in main
+        throw e;
     } catch (const BreakException&) {
         throw RuntimeError("'break' outside loop");
     } catch (const ContinueException&) {
@@ -14,32 +25,46 @@ void Interpreter::execute(Program& program) {
     }
 }
 
+/**
+ * Evaluate an Expression node and return its resulting Value
+ */
 Value Interpreter::evaluateExpression(Expression& expr) {
     expr.accept(*this);
     return currentValue;
 }
 
+/**
+ * Execute a statement node
+ */
 void Interpreter::executeStatement(Statement& stmt) {
     stmt.accept(*this);
 }
 
-// ========== ESPRESSIONI ==========
+// ========== EXPRESSIONS ==========
 
+/**
+ * Visist NumberLiteral: store its interger value in currentValue
+ */
 void Interpreter::visit(NumberLiteral& node) {
     currentValue = Value(node.value);
 }
 
+/**
+ * Visist BooleranLiteral: store its boolean value in currentValue
+ */
 void Interpreter::visit(BooleanLiteral& node) {
     currentValue = Value(node.value);
 }
 
+/**
+ * Visist Identifier: look up variable in symbol table and store its value
+ */
 void Interpreter::visit(Identifier& node) {
     auto it = variables.find(node.name);
     if (it == variables.end()) {
         throw RuntimeError("Undefined variable '" + node.name + "'");
     }
     
-    // Controllo di sicurezza aggiuntivo
     if (it->second.type == Value::UNDEFINED) {
         throw RuntimeError("Variable '" + node.name + "' is undefined");
     }
@@ -47,6 +72,9 @@ void Interpreter::visit(Identifier& node) {
     currentValue = it->second;
 }
 
+/**
+ * Visit ListAccess: evalute index, check bounds and store element value
+ */
 void Interpreter::visit(ListAccess& node) {
     auto it = variables.find(node.listName);
     if (it == variables.end()) {
@@ -65,7 +93,6 @@ void Interpreter::visit(ListAccess& node) {
     int index = indexValue.getInt();
     const auto& list = it->second.getList();
     
-    // Controllo migliorato degli indici
     if (index < 0) {
         throw RuntimeError("List index cannot be negative");
     }
@@ -77,13 +104,18 @@ void Interpreter::visit(ListAccess& node) {
     currentValue = list[index];
 }
 
+/**
+ * Visit UnaryOperation: evalute operand and perform operation
+ */
 void Interpreter::visit(UnaryOperation& node) {
     Value operand = evaluateExpression(*node.operand);
     currentValue = performUnaryOperation(node.op, operand);
 }
 
+/**
+ * Visit VinaryOperation: evalute operands and performa operation (short-circuit for AND/OR separately)
+ */
 void Interpreter::visit(BinaryOperation& node) {
-    // Gestione short-circuit per operatori logici
     if (node.op == BinaryOperation::Operator::AND) {
         Value left = evaluateExpression(*node.left);
         if (left.type != Value::BOOLEAN) {
@@ -117,20 +149,25 @@ void Interpreter::visit(BinaryOperation& node) {
         currentValue = Value(right.getBool());
         return;
     }
-    
-    // Per tutti gli altri operatori, valuta entrambi gli operandi
+
     Value left = evaluateExpression(*node.left);
     Value right = evaluateExpression(*node.right);
     currentValue = performBinaryOperation(left, node.op, right);
 }
 
-// ========== ISTRUZIONI ==========
+// ========== INSTRUCTIONS ==========
 
+/**
+ *  Visit Assigment: evalute value and assing to variable
+ */
 void Interpreter::visit(Assignment& node) {
     Value value = evaluateExpression(*node.value);
     variables[node.variableName] = value;
 }
 
+/**
+ * Visit ListAssigment: set element ad index to evaluted value
+ */
 void Interpreter::visit(ListAssignment& node) {
     auto it = variables.find(node.listName);
     if (it == variables.end()) {
@@ -157,10 +194,16 @@ void Interpreter::visit(ListAssignment& node) {
     list[index] = value;
 }
 
+/**
+ * Visit ListCreation: create an empty list and assing to variable
+ */
 void Interpreter::visit(ListCreation& node) {
     variables[node.variableName] = Value(std::vector<Value>());
 }
 
+/**
+ * Visit ListAppend: evaluate value and append to list 
+ */
 void Interpreter::visit(ListAppend& node) {
     auto it = variables.find(node.listName);
     if (it == variables.end()) {
@@ -175,11 +218,17 @@ void Interpreter::visit(ListAppend& node) {
     it->second.getList().push_back(value);
 }
 
+/**
+ * Visit PrintStatement: evalute expression and print result
+ */
 void Interpreter::visit(PrintStatement& node) {
     Value value = evaluateExpression(*node.expression);
     std::cout << value.toString() << std::endl;
 }
 
+/**
+ * Visit BreakStatement: throw BreakException on exit loop
+ */
 void Interpreter::visit(BreakStatement& node) {
     if (!inLoop) {
         throw RuntimeError("'break' outside loop");
@@ -187,6 +236,9 @@ void Interpreter::visit(BreakStatement& node) {
     throw BreakException();
 }
 
+/**
+ * Visit ContinueStatement: throw ContinueException to skip to next item
+ */
 void Interpreter::visit(ContinueStatement& node) {
     if (!inLoop) {
         throw RuntimeError("'continue' outside loop");
@@ -194,10 +246,12 @@ void Interpreter::visit(ContinueStatement& node) {
     throw ContinueException();
 }
 
+/**
+ * Visit IfStatement: evalute conditions and execute matching branch
+ */
 void Interpreter::visit(IfStatement& node) {
     Value condition = evaluateExpression(*node.condition);
-    
-    // CORREZIONE: La specifica richiede che il tipo sia booleano
+
     if (condition.type != Value::BOOLEAN) {
         throw RuntimeError("if condition must be boolean");
     }
@@ -207,7 +261,6 @@ void Interpreter::visit(IfStatement& node) {
         return;
     }
     
-    // Controlla elif clauses
     for (const auto& elif : node.elifClauses) {
         Value elifCondition = evaluateExpression(*elif.condition);
         if (elifCondition.type != Value::BOOLEAN) {
@@ -219,12 +272,14 @@ void Interpreter::visit(IfStatement& node) {
         }
     }
     
-    // Esegui else block se presente
     if (node.elseBlock) {
         executeStatement(*node.elseBlock);
     }
 }
 
+/**
+ * Visit WhileStatement: repeatedly execute body while condition in true
+ */
 void Interpreter::visit(WhileStatement& node) {
     bool wasInLoop = inLoop;
     inLoop = true;
@@ -233,7 +288,6 @@ void Interpreter::visit(WhileStatement& node) {
         while (true) {
             Value condition = evaluateExpression(*node.condition);
             
-            // CORREZIONE: La specifica richiede che il tipo sia booleano
             if (condition.type != Value::BOOLEAN) {
                 throw RuntimeError("while condition must be boolean");
             }
@@ -258,12 +312,18 @@ void Interpreter::visit(WhileStatement& node) {
     inLoop = wasInLoop;
 }
 
+/**
+ * Visit Block: execute all contained statements
+ */
 void Interpreter::visit(Block& node) {
     for (auto& stmt : node.statements) {
         executeStatement(*stmt);
     }
 }
 
+/**
+ * Visit Program: execute all top-level statements
+ */
 void Interpreter::visit(Program& node) {
     for (auto& stmt : node.statements) {
         executeStatement(*stmt);
@@ -272,6 +332,9 @@ void Interpreter::visit(Program& node) {
 
 // ========== HELPER METHODS ==========
 
+/**
+ * Perform a unary operation (- or not) and return the resulting Value
+ */
 Value Interpreter::performUnaryOperation(UnaryOperation::Operator op, const Value& operand) {
     switch (op) {
         case UnaryOperation::Operator::MINUS:
@@ -289,9 +352,11 @@ Value Interpreter::performUnaryOperation(UnaryOperation::Operator op, const Valu
     throw RuntimeError("Unknown unary operator");
 }
 
+/**
+ * Perform a binary operation (+, -, *, /, <, ==, ...) and return the result
+ */
 Value Interpreter::performBinaryOperation(const Value& left, BinaryOperation::Operator op, const Value& right) {
     switch (op) {
-        // Operatori aritmetici - richiedono interi
         case BinaryOperation::Operator::ADD:
             if (left.type != Value::INTEGER || right.type != Value::INTEGER) {
                 throw RuntimeError("Addition requires integer operands");
@@ -318,8 +383,7 @@ Value Interpreter::performBinaryOperation(const Value& left, BinaryOperation::Op
                 throw RuntimeError("Division by zero");
             }
             return Value(left.getInt() / right.getInt());
-            
-        // Operatori relazionali - richiedono interi
+
         case BinaryOperation::Operator::LESS:
             if (left.type != Value::INTEGER || right.type != Value::INTEGER) {
                 throw RuntimeError("Comparison requires integer operands");
@@ -344,7 +408,6 @@ Value Interpreter::performBinaryOperation(const Value& left, BinaryOperation::Op
             }
             return Value(left.getInt() >= right.getInt());
             
-        // Operatori di uguaglianza - richiedono stesso tipo
         case BinaryOperation::Operator::EQUAL:
             if (left.type != right.type) {
                 throw RuntimeError("Equality comparison requires same types");
@@ -367,7 +430,6 @@ Value Interpreter::performBinaryOperation(const Value& left, BinaryOperation::Op
             }
             throw RuntimeError("Cannot compare lists");
             
-        // Operatori logici - gestiti già in visit(BinaryOperation)
         case BinaryOperation::Operator::AND:
         case BinaryOperation::Operator::OR:
             throw RuntimeError("Logical operators should be handled in visit(BinaryOperation)");
