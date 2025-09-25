@@ -66,7 +66,13 @@ public:
 class Statement : public ASTNode {
 };
 
-// Letterale numerico: 42
+/**
+ * AST node for numbers (42, 100, ...)
+ * 
+ * Inherits from Expression by polymorphism 
+ * 
+ * Constructor sets the integer value and dataType to INTEGER 
+ */
 class NumberLiteral : public Expression {
 public:
     int value;
@@ -81,7 +87,13 @@ public:
     }
 };
 
-// Letterale booleano: True, False
+/**
+ * AST node for boolean (True, False)
+ * 
+ * Inherits from Expression by polymorphism
+ * 
+ * Constructor sets the boolean value and dataType to BOOLEAN
+ */
 class BooleanLiteral : public Expression {
 public:
     bool value;
@@ -96,7 +108,13 @@ public:
     }
 };
 
-// Identificatore: x
+/**
+ * AST node for the variable name (x, Var, ...)
+ * 
+ * Inherits from Expression by polymorphism
+ * 
+ * Constructor that takes the name by const reference
+ */
 class Identifier : public Expression {
 public:
     std::string name;
@@ -109,7 +127,13 @@ public:
     }
 };
 
-// Accesso a lista: x[i]
+/**
+ * AST node to access the list (x[5], arr[i], ...)
+ * 
+ * Inherits from Expression by polymorphism
+ * 
+ * Stores list name as string and index expression as smart pointer
+ */
 class ListAccess : public Expression {
 public:
     std::string listName;
@@ -124,12 +148,18 @@ public:
     }
 };
 
-// Operazioni unarie: -x, not x
+/**
+* AST node for unary operations (-x, not x)
+*
+* Inherits from Expression by polymorphism
+*
+* Stores the operator type and operand
+*/
 class UnaryOperation : public Expression {
 public:
     enum class Operator {
-        MINUS,    // -
-        NOT       // not
+        MINUS,   
+        NOT       
     };
     
     Operator op;
@@ -142,25 +172,30 @@ public:
     std::string toString() const override;
 };
 
-// Operazioni binarie: x + y, x == y, x and y, etc.
+/**
+ * AST node for binary operations (x + y, x == y, x and y, ...)
+ * 
+ * Inherits from Expression by polymorphism
+ * 
+ * Stores left operand, operator and right operand
+ * 
+ * +, -, *, //, <, >, >=, <=, ==, !?, and, or
+ */
 class BinaryOperation : public Expression {
 public:
     enum class Operator {
-        // Aritmetici
-        ADD,      // +
-        SUBTRACT, // -
-        MULTIPLY, // *
-        DIVIDE,   // //
-        // Relazionali
-        LESS,           // <
-        LESS_EQUAL,     // <=
-        GREATER,        // >
-        GREATER_EQUAL,  // >=
-        EQUAL,          // ==
-        NOT_EQUAL,      // !=
-        // Booleani
-        AND,      // and
-        OR        // or
+        ADD,
+        SUBTRACT,
+        MULTIPLY,
+        DIVIDE,
+        LESS,          
+        LESS_EQUAL,     
+        GREATER,        
+        GREATER_EQUAL,  
+        EQUAL,          
+        NOT_EQUAL,      
+        AND,    
+        OR       
     };
     
     std::unique_ptr<Expression> left;
@@ -174,9 +209,11 @@ public:
     std::string toString() const override;
 };
 
-// ========== ISTRUZIONI ==========
-
-// Blocco di istruzioni
+/**
+ * AST node representing a block of statements
+ * 
+ * Contains a vector of unique_ptr Statement
+ */
 class Block : public Statement {
 public:
     std::vector<std::unique_ptr<Statement>> statements;
@@ -191,7 +228,11 @@ public:
     }
 };
 
-// Assegnazione: x = expr
+/**
+ * AST node for assignment (x = expr, var = 5, ...)
+ * 
+ * Stores variable name and value expression
+ */
 class Assignment : public Statement {
 public:
     std::string variableName;
@@ -206,7 +247,11 @@ public:
     }
 };
 
-// Assegnazione a lista: x[i] = expr
+/**
+ * AST node for list assignment (x[i] = expr, arr[1] = 30, ...)
+ * 
+ * Stores list name, index expression and value expression
+ */
 class ListAssignment : public Statement {
 public:
     std::string listName;
@@ -222,7 +267,11 @@ public:
     }
 };
 
-// Creazione lista: x = list()
+/**
+ * AST node for list creation (x = list())
+ * 
+ * Stores the variable name
+ */
 class ListCreation : public Statement {
 public:
     std::string variableName;
@@ -235,7 +284,11 @@ public:
     }
 };
 
-// Append a lista: x.append(expr)
+/**
+ * AST node for appending to a list (x.append(10))
+ * 
+ * Stores list name and value expression to append
+ */
 class ListAppend : public Statement {
 public:
     std::string listName;
@@ -250,7 +303,11 @@ public:
     }
 };
 
-// Print: print(expr)
+/**
+ * AST node for printing (print(x), print (10))
+ * 
+ * Stores the expression to print
+ */
 class PrintStatement : public Statement {
 public:
     std::unique_ptr<Expression> expression;
@@ -263,7 +320,11 @@ public:
     }
 };
 
-// Break
+/**
+ * AST node for break statement
+ * 
+ * Break in python allows you to exit a loop when an external condition is met
+ */
 class BreakStatement : public Statement {
 public:
     void accept(ASTVisitor& visitor) override;
@@ -272,7 +333,11 @@ public:
     }
 };
 
-// Continue
+/**
+ * AST node for continue statement
+ * 
+ * Continue in python used to end the current interation in a for loop (or while loop) and continues to the next interation
+ */
 class ContinueStatement : public Statement {
 public:
     void accept(ASTVisitor& visitor) override;
@@ -281,7 +346,11 @@ public:
     }
 };
 
-// If statement con elif e else opzionali
+/**
+ * AST node for if statement with optional elif and else clauses
+ * 
+ * If, elif, else are condizional statements used in python that help you to automatically excute different code based on a particular condition
+ */
 class IfStatement : public Statement {
 public:
     struct ElifClause {
@@ -295,7 +364,7 @@ public:
     std::unique_ptr<Expression> condition;
     std::unique_ptr<Block> thenBlock;
     std::vector<ElifClause> elifClauses;
-    std::unique_ptr<Block> elseBlock;  // può essere nullptr
+    std::unique_ptr<Block> elseBlock; 
     
     IfStatement(std::unique_ptr<Expression> cond, std::unique_ptr<Block> then)
         : condition(std::move(cond)), thenBlock(std::move(then)), elseBlock(nullptr) {}
@@ -312,7 +381,11 @@ public:
     std::string toString() const override;
 };
 
-// While statement
+/**
+ * AST node fot while statement
+ * 
+ * The while loop in python can execute a set of statements as long as a condition is true
+ */
 class WhileStatement : public Statement {
 public:
     std::unique_ptr<Expression> condition;
@@ -327,7 +400,9 @@ public:
     }
 };
 
-// Programma (root del AST)
+/**
+ * Root of the AST it is represents the whole program
+ */
 class Program : public ASTNode {
 public:
     std::vector<std::unique_ptr<Statement>> statements;
@@ -342,8 +417,9 @@ public:
     }
 };
 
-// ========== PATTERN VISITOR ==========
-
+/**
+ * Visitor pattern interface defing visit methods for each node type
+ */
 class ASTVisitor {
 public:
     virtual ~ASTVisitor() = default;

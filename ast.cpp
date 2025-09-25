@@ -1,6 +1,17 @@
+/**
+ * Include the corresponding header
+ */
 #include "ast.h"
 
-// Espressioni
+// ================= EXPRERSSIONS =================
+
+/**
+ * Eache AST node has an accept(ASTVisitor&visitor) method for expressions
+ * 
+ * When you call accept, the node calls the corresponding visit method of the visitor, passing itself as a parameter
+ * 
+ * This way, the logic remains separate from the tree structure
+ */
 void NumberLiteral::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -25,7 +36,15 @@ void BinaryOperation::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
-// Istruzioni
+// ================= INSTRUCTIONS =================
+
+/**
+ * Eache AST node has an accept(ASTVisitor&visitor) method for instructions
+ * 
+ * When you call accept, the node calls the corresponding visit method of the visitor, passing itself as a parameter
+ * 
+ * This way, the logic remains separate from the tree structure
+ */
 void Assignment::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
@@ -70,6 +89,11 @@ void Program::accept(ASTVisitor& visitor) {
     visitor.visit(*this);
 }
 
+// ================= toString METHODS =================
+
+/**
+ * Return a string with the operator anche the operand string representation
+ */
 std::string UnaryOperation::toString() const {
     std::string opStr;
     switch (op) {
@@ -79,6 +103,9 @@ std::string UnaryOperation::toString() const {
     return opStr + operand->toString();
 }
 
+/**
+ * Return a string with (left operator right) with parentheses for clarity
+ */
 std::string BinaryOperation::toString() const {
     std::string opStr;
     switch (op) {
@@ -98,6 +125,9 @@ std::string BinaryOperation::toString() const {
     return "(" + left->toString() + opStr + right->toString() + ")";
 }
 
+/**
+ * Return a string with if, elif, else clauses
+ */
 std::string IfStatement::toString() const {
     std::string result = "if " + condition->toString() + ": ...";
     
