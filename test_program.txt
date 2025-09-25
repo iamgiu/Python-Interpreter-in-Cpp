@@ -13,3 +13,8 @@ while x > 0:
 		break
 
 print(x)
+
+
+if True:
+	print(1)
+  print(2)  

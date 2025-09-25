@@ -194,31 +194,48 @@ Token Lexer::makeTwoCharOperator() {
 void Lexer::handleIndentation() {
     if (!atLineStart) return;
     
-    int indentLevel = 0;
+    int indentChars = 0;
+    bool mixedIndentation = false;
+    char firstIndentChar = '\0';
     
-    // Count indentation - accept both tabs and spaces (4 spaces = 1 tab)
+    // Conta caratteri di indentazione e verifica consistenza
     while (currentChar() == '\t' || currentChar() == ' ') {
-        if (currentChar() == '\t') {
-            indentLevel++;
-            advance();
-        } else if (currentChar() == ' ') {
-            // Count spaces and convert to tab equivalents
-            int spaces = 0;
-            while (currentChar() == ' ') {
-                spaces++;
-                advance();
-            }
-            // Assume 4 spaces = 1 tab level
-            indentLevel += (spaces + 3) / 4; // Round up division
+        char c = currentChar();
+        if (firstIndentChar == '\0') {
+            firstIndentChar = c;
+        } else if (firstIndentChar != c) {
+            mixedIndentation = true;
         }
+        indentChars++;
+        advance();
     }
     
-    // If the line is empty or is a comment, ignore indentation
+    // Se la linea è vuota, ignora l'indentazione
     if (currentChar() == '\n' || currentChar() == '\0') {
         return;
     }
     
-    // SAFETY CHECK: make sure stack is not empty
+    // Errore per indentazione mista nella stessa linea
+    if (mixedIndentation) {
+        tokens.push_back(Token(TokenType::ERROR, "IndentationError: inconsistent use of tabs and spaces in indentation", line, column));
+        return;
+    }
+    
+    // Calcola il livello di indentazione
+    int indentLevel;
+    if (firstIndentChar == '\t' || indentChars == 0) {
+        // Tab o nessuna indentazione: 1 tab = 1 livello
+        indentLevel = indentChars;
+    } else {
+        // Spazi: converti in livelli (più tollerante)
+        if (indentChars % 2 != 0) {
+            tokens.push_back(Token(TokenType::ERROR, "IndentationError: unindent does not match any outer indentation level", line, column));
+            return;
+        }
+        indentLevel = indentChars / 2; // 2 spazi = 1 livello base
+    }
+    
+    // SAFETY CHECK: assicurati che lo stack non sia vuoto
     if (indentStack.empty()) {
         tokens.push_back(Token(TokenType::ERROR, "Internal error: empty indent stack", line, column));
         return;
@@ -227,24 +244,19 @@ void Lexer::handleIndentation() {
     int currentIndent = indentStack.top();
     
     if (indentLevel > currentIndent) {
-        // Increase indentation - generate INDENT
+        // Aumento indentazione - genera INDENT
         indentStack.push(indentLevel);
         tokens.push_back(Token(TokenType::INDENT, "", line, column));
     } else if (indentLevel < currentIndent) {
-        // Decrease indentation - generate DEDENT
+        // Diminuzione indentazione - genera DEDENT
         while (!indentStack.empty() && indentStack.top() > indentLevel) {
             indentStack.pop();
             tokens.push_back(Token(TokenType::DEDENT, "", line, column));
         }
         
-        // Check that indentation is consistent
-        if (indentStack.empty()) {
-            tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation: empty stack", line, column));
-            return;
-        }
-        
-        if (indentStack.top() != indentLevel) {
-            tokens.push_back(Token(TokenType::ERROR, "Inconsistent indentation", line, column));
+        // Verifica che il livello sia presente nello stack
+        if (indentStack.empty() || indentStack.top() != indentLevel) {
+            tokens.push_back(Token(TokenType::ERROR, "IndentationError: unindent does not match any outer indentation level", line, column));
             return;
         }
     }
