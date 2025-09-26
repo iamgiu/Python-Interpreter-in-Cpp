@@ -1,28 +1,42 @@
+/**
+ * Guard Headers
+ */
 #ifndef LEXER_H
 #define LEXER_H
 
+/**
+ * Include fot std::string used to store source code and token values
+ * 
+ * Include for std::vector used to store the list of generated tokens
+ * 
+ * Include for std::stack used to manage identation level
+ * 
+ * Include for std::ifstream if needed to read from file
+ * 
+ * Include for std::unordered_map used for keyword lookup in makeIdentifier
+ */
 #include <string>
 #include <vector>
 #include <stack>
 #include <fstream>
 #include <unordered_map>
 
-// Tipi di token come da specifica del progetto
-// Ogni token rappresenta un elemento lessicale del linguaggio Python semplificato
+/**
+ * Token types enumeration
+ * 
+ * Each tolen represent a lexical element of simplified Python-like language
+ */
 enum class TokenType {
-    // Letterali
-    NUM,           // numeri [1-9][0-9]* | 0
-    ID,            // identificatori [a-zA-Z][0-9a-zA-Z]*
+    NUM,           // number literal [1-9][0-9]* | 0
+    ID,            // identifier [a-zA-Z][0-9a-zA-Z]*
     TRUE,          // True
     FALSE,         // False
     
-    // Operatori aritmetici
     PLUS,          // +
     MINUS,         // -
     MULTIPLY,      // *
     DIVIDE,        // //
     
-    // Operatori relazionali
     LESS,          // <
     LESS_EQUAL,    // <=
     GREATER,       // >
@@ -30,12 +44,10 @@ enum class TokenType {
     EQUAL,         // ==
     NOT_EQUAL,     // !=
     
-    // Operatori booleani
     AND,           // and
     OR,            // or
     NOT,           // not
     
-    // Parole chiave
     IF,            // if
     ELIF,          // elif
     ELSE,          // else
@@ -46,7 +58,6 @@ enum class TokenType {
     PRINT,         // print
     APPEND,        // append
     
-    // Punteggiatura
     ASSIGN,        // =
     LPAREN,        // (
     RPAREN,        // )
@@ -56,119 +67,71 @@ enum class TokenType {
     DOT,           // .
     COMMA,         // ,
     
-    // Token speciali per gestione struttura del codice
     NEWLINE,       // \n
-    INDENT,        // aumento indentazione (generato automaticamente)
-    DEDENT,        // diminuzione indentazione (generato automaticamente)
+    INDENT,        // identation level increases
+    DEDENT,        // identation level decreases
     ENDMARKER,     // EOF
     
-    // Errore lessicale
     ERROR
 };
 
-// Struttura per rappresentare un token con informazioni di posizione
+/**
+ * Represents a single token with type, text value and position info
+ */
 struct Token {
-    TokenType type;        // Tipo del token
-    std::string value;     // Valore testuale del token
-    int line;             // Numero di linea nel codice sorgente
-    int column;           // Numero di colonna nel codice sorgente
+    TokenType type;      
+    std::string value;   
+    int line;          
+    int column;
     
     Token(TokenType t, const std::string& v, int l, int c) 
         : type(t), value(v), line(l), column(c) {}
 };
 
 /**
- * Lexer (Analizzatore Lessicale)
+ * Lexical Analyzer
  * 
- * Converte il codice sorgente in una sequenza di token seguendo le regole
- * lessicali specificate nel documento del progetto. Gestisce in particolare:
- * - Riconoscimento di numeri, identificatori e parole chiave
- * - Operatori aritmetici, relazionali e booleani  
- * - Gestione dell'indentazione con stack per generare INDENT/DEDENT
- * - Rilevamento e segnalazione di errori lessicali
+ * Converts the input source code into a sequence of tokens following the lexical rules
  */
 class Lexer {
 private:
-    std::string source;           // Codice sorgente da analizzare
-    size_t pos;                   // Posizione corrente nel codice
-    int line;                     // Linea corrente (inizia da 1)
-    int column;                   // Colonna corrente (inizia da 1)
-    std::stack<int> indentStack;  // Stack per gestire livelli di indentazione
-    std::vector<Token> tokens;    // Token generati dall'analisi
-    bool atLineStart;             // Flag per rilevare inizio di nuova linea
-    
-    // === METODI PRIVATI PER NAVIGAZIONE DEL CODICE ===
-    
-    /** Restituisce il carattere corrente (o '\0' se fine file) */
+    std::string source;
+    size_t pos;
+    int line;
+    int column;
+    std::stack<int> indentStack;
+    std::vector<Token> tokens;
+    bool atLineStart;
+
     char currentChar();
-    
-    /** Guarda avanti di 'offset' caratteri senza avanzare la posizione */
+
     char peekChar(int offset = 1);
     
-    /** Avanza di una posizione aggiornando line e column */
     void advance();
-    
-    /** Salta spazi (ma non tabulazioni, usate per indentazione) */
+
     void skipWhitespace();
-    
-    // === HELPER PER RICONOSCIMENTO CARATTERI ===
     
     bool isDigit(char c);
     bool isAlpha(char c);
     bool isAlphaNum(char c);
     
-    // === METODI PER PARSING DI TOKEN SPECIFICI ===
-    
-    /**
-     * Costruisce un token NUM seguendo la regex: [1-9][0-9]* | 0
-     * Gestisce correttamente il caso speciale dello zero
-     */
     Token makeNumber();
-    
-    /**
-     * Costruisce un token ID o parola chiave seguendo: [a-zA-Z][0-9a-zA-Z]*
-     * Controlla se l'identificatore è una parola riservata
-     */
+
     Token makeIdentifier();
     
-    /**
-     * Gestisce operatori che possono essere singoli o doppi
-     * Es: = vs ==, < vs <=, / vs //
-     */
     Token makeTwoCharOperator();
-    
-    /**
-     * GESTIONE DELL'INDENTAZIONE (algoritmo da specifica)
-     * 
-     * Utilizza uno stack S inizializzato con 0. Per ogni linea:
-     * - Se nt = top(S): nessun token
-     * - Se nt > top(S): push(nt), genera INDENT
-     * - Se nt < top(S): pop fino a nt, genera DEDENT per ogni pop
-     * 
-     * Richiede che nt sia sempre presente nello stack (indentazione consistente)
-     */
+
     void handleIndentation();
-    
-    /**
-     * Alla fine del file, genera DEDENT per ogni livello > 0 rimasto nello stack
-     */
+
     void addDedentTokens();
     
 public:
-    /**
-     * Costruttore: inizializza lo stack di indentazione con 0
-     * come richiesto dalla specifica
-     */
     Lexer(const std::string& sourceCode);
+
     ~Lexer();
-    
-    /**
-     * Metodo principale: analizza tutto il codice sorgente e restituisce
-     * la sequenza completa di token. Si ferma al primo errore lessicale.
-     */
+
     std::vector<Token> tokenize();
-    
-    /** Utility per debug: stampa tutti i token generati */
+
     void printTokens() const;
 };
 
