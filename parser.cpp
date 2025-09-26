@@ -1,41 +1,68 @@
+/**
+ * Implementation of the Parser class
+ */
 #include "parser.h"
+
+/**
+ * Include for std::count, std::cerr used for printing and error messages
+ */
 #include <iostream>
 
+/**
+ * Initalizes the parser with a stram of tokens
+ */
 Parser::Parser(const std::vector<Token>& tokenStream) : tokens(tokenStream), currentPos(0) {
-    // Assicurati che ci sia sempre un ENDMARKER alla fine
     if (tokens.empty() || tokens.back().type != TokenType::ENDMARKER) {
         tokens.push_back(Token(TokenType::ENDMARKER, "EOF", 0, 0));
     }
 }
 
+/**
+ * Returns the current
+ * 
+ * Perform safety check
+ */
 const Token& Parser::currentToken() {
-    // Controllo di sicurezza: se siamo fuori bounds, restituiamo l'ultimo token
     if (currentPos >= tokens.size()) {
-        // Restituisce l'ultimo token (dovrebbe essere ENDMARKER)
         return tokens.back();
     }
     return tokens[currentPos];
 }
 
+/**
+ * Return the token at a given offset from the current position
+ * 
+ * Perform safety check
+ */
 const Token& Parser::peekToken(int offset) {
     size_t pos = currentPos + offset;
-    // Controllo di sicurezza: se siamo fuori bounds, restituiamo l'ultimo token
     if (pos >= tokens.size()) {
         return tokens.back();
     }
     return tokens[pos];
 }
 
+/**
+ * Advances the current position to the next token
+ */
 void Parser::advance() {
     if (!isAtEnd()) {
         currentPos++;
     }
 }
 
+/**
+ * Check if the parser has reached the end of the token stream
+ */
 bool Parser::isAtEnd() {
     return currentPos >= tokens.size() || currentToken().type == TokenType::ENDMARKER;
 }
 
+/**
+ * Match the current token against a given type
+ * 
+ * if matche adavance and return true else return false
+ */
 bool Parser::match(TokenType type) {
     if (check(type)) {
         advance();
@@ -44,11 +71,19 @@ bool Parser::match(TokenType type) {
     return false;
 }
 
+/**
+ * Check the type of the current token without adavancing
+ */
 bool Parser::check(TokenType type) {
     if (isAtEnd()) return false;
     return currentToken().type == type;
 }
 
+/**
+ * Consume a token of a specific type
+ * 
+ * if the token matchm it is consumed and returned else throw a ParseError with a message
+ */
 Token Parser::consume(TokenType type, const std::string& message) {
     if (check(type)) {
         Token token = currentToken();
@@ -58,23 +93,29 @@ Token Parser::consume(TokenType type, const std::string& message) {
     throw ParseError(message);
 }
 
+/**
+ * Entry point for parsing a program
+ */
 std::unique_ptr<Program> Parser::parseProgram() {
     return parseProgram_();
 }
 
+/**
+ * Parse an entire program
+ * 
+ * Parse a list of statement, skip trailing DEDENT/NEWLINE and ensure the token stream end with ENDMARKER
+ */
 std::unique_ptr<Program> Parser::parseProgram_() {
     auto program = std::make_unique<Program>();
     
     parseStmts(program->statements);
-    
-    // Salta token finali (DEDENT e NEWLINE)
+
     while (currentPos < tokens.size() && 
            (tokens[currentPos].type == TokenType::DEDENT || 
             tokens[currentPos].type == TokenType::NEWLINE)) {
         currentPos++;
     }
-    
-    // Dovremmo essere all'ENDMARKER
+
     if (currentPos >= tokens.size()) {
         throw ParseError("Unexpected end of token stream");
     }
@@ -86,16 +127,18 @@ std::unique_ptr<Program> Parser::parseProgram_() {
     return program;
 }
 
+/**
+ * Parse zero or more statement into a given vector
+ * 
+ * Skip empty NEWLINE and stop and ENDMARKER or DEDENT
+ */
 void Parser::parseStmts(std::vector<std::unique_ptr<Statement>>& statements) {
-    // <stmts> → <stmt> <stmts> | ε
     while (!isAtEnd() && !check(TokenType::ENDMARKER) && !check(TokenType::DEDENT)) {
-        
-        // Salta eventuali NEWLINE vuoti
+
         while (check(TokenType::NEWLINE)) {
             advance();
         }
         
-        // Se dopo aver saltato i NEWLINE siamo alla fine, esci
         if (isAtEnd() || check(TokenType::ENDMARKER) || check(TokenType::DEDENT)) {
             break;
         }
@@ -107,8 +150,12 @@ void Parser::parseStmts(std::vector<std::unique_ptr<Statement>>& statements) {
     }
 }
 
+/**
+ * Parse a single statement 
+ * 
+ * Distinguishes between compound statements (if, while) and simple statements
+ */
 std::unique_ptr<Statement> Parser::parseStmt() {
-    // <stmt> → <compound_stmt> | <simple_stmt>
     if (check(TokenType::IF) || check(TokenType::WHILE)) {
         return parseCompoundStmt();
     } else {
@@ -116,8 +163,12 @@ std::unique_ptr<Statement> Parser::parseStmt() {
     }
 }
 
+/**
+ * Parse a single statement
+ * 
+ * Gandles assignment, list creation, list append, print, brake, continue
+ */
 std::unique_ptr<Statement> Parser::parseSimpleStmt() {
-    // Parsing delle simple statements
     if (check(TokenType::BREAK)) {
         return parseBreakStatement();
     } else if (check(TokenType::CONTINUE)) {
@@ -125,13 +176,11 @@ std::unique_ptr<Statement> Parser::parseSimpleStmt() {
     } else if (check(TokenType::PRINT)) {
         return parsePrintStatement();
     } else if (check(TokenType::ID)) {
-        
-        // Controlla il secondo token per determinare il tipo di statement
+
         if (currentPos + 1 < tokens.size()) {
             TokenType secondToken = peekToken().type;
             
             if (secondToken == TokenType::ASSIGN) {
-                // Controlla il terzo token per list creation
                 if (currentPos + 2 < tokens.size()) {
                     TokenType thirdToken = peekToken(2).type;
                     
@@ -143,7 +192,7 @@ std::unique_ptr<Statement> Parser::parseSimpleStmt() {
                 return parseAssignment();
                 
             } else if (secondToken == TokenType::LBRACKET) {
-                return parseAssignment(); // List assignment
+                return parseAssignment();
             } else if (secondToken == TokenType::DOT) {
                 return parseListAppend();
             }
@@ -153,15 +202,16 @@ std::unique_ptr<Statement> Parser::parseSimpleStmt() {
     throw ParseError("Unexpected token in simple statement");
 }
 
+/**
+ * Parse a regular or list assignment statement
+ */
 std::unique_ptr<Statement> Parser::parseAssignment() {
-    // <loc> = <expr> newline
     if (check(TokenType::ID)) {
         std::string varName = currentToken().value;
-        advance(); // consume ID
+        advance();
         
         if (check(TokenType::LBRACKET)) {
-            // List assignment: x[i] = expr
-            advance(); // consume [
+            advance();
             auto index = parseExpr();
             consume(TokenType::RBRACKET, "Expected ']'");
             consume(TokenType::ASSIGN, "Expected '='");
@@ -170,7 +220,6 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
             
             return std::make_unique<ListAssignment>(varName, std::move(index), std::move(value));
         } else {
-            // Regular assignment: x = expr
             consume(TokenType::ASSIGN, "Expected '='");
             auto value = parseExpr();
             consume(TokenType::NEWLINE, "Expected newline");
@@ -182,8 +231,10 @@ std::unique_ptr<Statement> Parser::parseAssignment() {
     throw ParseError("Expected identifier in assignment");
 }
 
+/**
+ * Parse list creation
+ */
 std::unique_ptr<Statement> Parser::parseListCreation() {
-    // <id> = list() newline
     std::string varName = consume(TokenType::ID, "Expected identifier").value;
     consume(TokenType::ASSIGN, "Expected '='");
     consume(TokenType::LIST, "Expected 'list'");
@@ -194,8 +245,10 @@ std::unique_ptr<Statement> Parser::parseListCreation() {
     return std::make_unique<ListCreation>(varName);
 }
 
+/**
+ * Parse list append
+ */
 std::unique_ptr<Statement> Parser::parseListAppend() {
-    // <id> . append ( <expr> ) newline
     std::string listName = consume(TokenType::ID, "Expected identifier").value;
     consume(TokenType::DOT, "Expected '.'");
     consume(TokenType::APPEND, "Expected 'append'");
@@ -207,8 +260,10 @@ std::unique_ptr<Statement> Parser::parseListAppend() {
     return std::make_unique<ListAppend>(listName, std::move(value));
 }
 
+/**
+ * Parse print statement
+ */
 std::unique_ptr<Statement> Parser::parsePrintStatement() {
-    // print ( <expr> ) newline
     consume(TokenType::PRINT, "Expected 'print'");
     consume(TokenType::LPAREN, "Expected '('");
     auto expr = parseExpr();
@@ -218,22 +273,28 @@ std::unique_ptr<Statement> Parser::parsePrintStatement() {
     return std::make_unique<PrintStatement>(std::move(expr));
 }
 
+/**
+ * Parse break statement
+ */
 std::unique_ptr<Statement> Parser::parseBreakStatement() {
-    // break newline
     consume(TokenType::BREAK, "Expected 'break'");
     consume(TokenType::NEWLINE, "Expected newline");
     return std::make_unique<BreakStatement>();
 }
 
+/**
+ * Parse continue statement
+ */
 std::unique_ptr<Statement> Parser::parseContinueStatement() {
-    // continue newline
     consume(TokenType::CONTINUE, "Expected 'continue'");
     consume(TokenType::NEWLINE, "Expected newline");
     return std::make_unique<ContinueStatement>();
 }
 
+/**
+ * Parse compound statment
+ */
 std::unique_ptr<Statement> Parser::parseCompoundStmt() {
-    // <compound_stmt> → <if_stmt> | <while_stmt>
     if (check(TokenType::IF)) {
         return parseIfStatement();
     } else if (check(TokenType::WHILE)) {
@@ -243,30 +304,27 @@ std::unique_ptr<Statement> Parser::parseCompoundStmt() {
     throw ParseError("Expected compound statement");
 }
 
+/**
+ * Parse if statment with optional elif/else block
+ */
 std::unique_ptr<Statement> Parser::parseIfStatement() {
-    // <if_stmt> → if <expr> : <block>
-    //           | if <expr> : <block> <elif_block>
-    //           | if <expr> : <block> <else_block>
-    
     consume(TokenType::IF, "Expected 'if'");
     auto condition = parseExpr();
     consume(TokenType::COLON, "Expected ':'");
     auto thenBlock = parseBlock();
     
     auto ifStmt = std::make_unique<IfStatement>(std::move(condition), std::move(thenBlock));
-    
-    // Parse elif clauses
+
     while (check(TokenType::ELIF)) {
-        advance(); // consume 'elif'
+        advance();
         auto elifCondition = parseExpr();
         consume(TokenType::COLON, "Expected ':'");
         auto elifBlock = parseBlock();
         ifStmt->addElif(std::move(elifCondition), std::move(elifBlock));
     }
-    
-    // Parse optional else clause
+
     if (check(TokenType::ELSE)) {
-        advance(); // consume 'else'
+        advance();
         consume(TokenType::COLON, "Expected ':'");
         auto elseBlock = parseBlock();
         ifStmt->setElse(std::move(elseBlock));
@@ -275,8 +333,10 @@ std::unique_ptr<Statement> Parser::parseIfStatement() {
     return std::move(ifStmt);
 }
 
+/**
+ * Parse while statement
+ */
 std::unique_ptr<Statement> Parser::parseWhileStatement() {
-    // <while_stmt> → while <expr> : <block>
     consume(TokenType::WHILE, "Expected 'while'");
     auto condition = parseExpr();
     consume(TokenType::COLON, "Expected ':'");
@@ -285,8 +345,10 @@ std::unique_ptr<Statement> Parser::parseWhileStatement() {
     return std::make_unique<WhileStatement>(std::move(condition), std::move(body));
 }
 
+/**
+ * Parse a block: newline + IDENT + statement + DEDENT
+ */
 std::unique_ptr<Block> Parser::parseBlock() {
-    // <block> → newline indent <stmts> dedent
     consume(TokenType::NEWLINE, "Expected newline before block");
     consume(TokenType::INDENT, "Expected indentation");
     
@@ -298,8 +360,10 @@ std::unique_ptr<Block> Parser::parseBlock() {
     return block;
 }
 
+/**
+ * Parse logical OR operations
+ */
 std::unique_ptr<Expression> Parser::parseExpr() {
-    // <expr> → <expr> or <join> | <join>
     auto expr = parseJoin();
     
     while (match(TokenType::OR)) {
@@ -310,8 +374,10 @@ std::unique_ptr<Expression> Parser::parseExpr() {
     return expr;
 }
 
+/**
+ * Parse logical AND operations
+ */
 std::unique_ptr<Expression> Parser::parseJoin() {
-    // <join> → <join> and <equality> | <equality>
     auto expr = parseEquality();
     
     while (match(TokenType::AND)) {
@@ -322,8 +388,10 @@ std::unique_ptr<Expression> Parser::parseJoin() {
     return expr;
 }
 
+/**
+ * Parse equality operations
+ */
 std::unique_ptr<Expression> Parser::parseEquality() {
-    // <equality> → <equality> == <rel> | <equality> != <rel> | <rel>
     auto expr = parseRel();
     
     while (true) {
@@ -341,8 +409,10 @@ std::unique_ptr<Expression> Parser::parseEquality() {
     return expr;
 }
 
+/**
+ * Parse relational operations
+ */
 std::unique_ptr<Expression> Parser::parseRel() {
-    // <rel> → <numexpr> < <numexpr> | <numexpr> <= <numexpr> | ... | <numexpr>
     auto expr = parseNumExpr();
     
     if (match(TokenType::LESS)) {
@@ -362,8 +432,10 @@ std::unique_ptr<Expression> Parser::parseRel() {
     return expr;
 }
 
+/**
+ * Parse numeric expressions
+ */
 std::unique_ptr<Expression> Parser::parseNumExpr() {
-    // <numexpr> → <numexpr> + <term> | <numexpr> - <term> | <term>
     auto expr = parseTerm();
     
     while (true) {
@@ -381,8 +453,10 @@ std::unique_ptr<Expression> Parser::parseNumExpr() {
     return expr;
 }
 
+/**
+ * Parse terms (multiplication and division)
+ */
 std::unique_ptr<Expression> Parser::parseTerm() {
-    // <term> → <term> * <unary> | <term> // <unary> | <unary>
     auto expr = parseUnary();
     
     while (true) {
@@ -400,8 +474,10 @@ std::unique_ptr<Expression> Parser::parseTerm() {
     return expr;
 }
 
+/**
+ * Parse unary expressions
+ */
 std::unique_ptr<Expression> Parser::parseUnary() {
-    // <unary> → not <unary> | - <unary> | <factor>
     if (match(TokenType::NOT)) {
         auto operand = parseUnary();
         return std::make_unique<UnaryOperation>(UnaryOperation::Operator::NOT, std::move(operand));
@@ -415,8 +491,10 @@ std::unique_ptr<Expression> Parser::parseUnary() {
     return parseFactor();
 }
 
+/**
+ * Parse factors (primary expressions)
+ */
 std::unique_ptr<Expression> Parser::parseFactor() {
-    // <factor> → ( <expr> ) | <loc> | num | True | False
     if (match(TokenType::LPAREN)) {
         auto expr = parseExpr();
         consume(TokenType::RPAREN, "Expected ')' after expression");
@@ -444,8 +522,10 @@ std::unique_ptr<Expression> Parser::parseFactor() {
     throw ParseError("Expected expression");
 }
 
+/**
+ * Parse location expressions (variables and list access)
+ */
 std::unique_ptr<Expression> Parser::parseLoc() {
-    // <loc> → id | id [ <expr> ]
     std::string name = consume(TokenType::ID, "Expected identifier").value;
     
     if (match(TokenType::LBRACKET)) {
