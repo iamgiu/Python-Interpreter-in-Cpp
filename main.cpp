@@ -1,11 +1,24 @@
+/**
+ * Include for std::count, std::cerr used for printing and error messages
+ * 
+ * Include for std::ifstream to read source file from disk
+ * 
+ * Include for std::stringstream to easily read entire file content
+ */
 #include <iostream>
 #include <fstream>
 #include <sstream>
 
+/**
+ * Include project headers for lexer, parser and interpreter
+ */
 #include "lexer.h"
 #include "parser.h"
 #include "interpreter.h"
 
+/**
+ * Reads the entire content of a file into a string
+ */
 std::string readFile(const std::string& filename) {
     std::ifstream file(filename);
     if (!file.is_open()) {
@@ -15,17 +28,14 @@ std::string readFile(const std::string& filename) {
     std::stringstream buffer;
     buffer << file.rdbuf();
     std::string content = buffer.str();
-    
-    // Normalizza i terminatori di linea
+
     std::string normalized;
     for (size_t i = 0; i < content.length(); i++) {
         if (content[i] == '\r') {
             if (i + 1 < content.length() && content[i + 1] == '\n') {
-                // \r\n -> \n
                 normalized += '\n';
-                i++; // salta il \n
+                i++;
             } else {
-                // \r da solo -> \n
                 normalized += '\n';
             }
         } else {
@@ -36,6 +46,13 @@ std::string readFile(const std::string& filename) {
     return normalized;
 }
 
+/**
+ * Expects exactly one argument: the path to the source file to execute
+ * 
+ * Performs lexical analysis, parsing an interpretation
+ * 
+ * Reports errors
+ */
 int main(int argc, char* argv[]) {
     if (argc != 2) {
         std::cerr << "Usage: " << argv[0] << " <source_file>" << std::endl;
@@ -43,26 +60,21 @@ int main(int argc, char* argv[]) {
     }
     
     try {
-        // Read source file
         std::string sourceCode = readFile(argv[1]);
-        
-        // Phase 1: Lexical Analysis
+
         Lexer lexer(sourceCode);
         std::vector<Token> tokens = lexer.tokenize();
-        
-        // CORREZIONE: Controlla errori lessicali IMMEDIATAMENTE
+
         for (const auto& token : tokens) {
             if (token.type == TokenType::ERROR) {
                 std::cerr << "Error: " << token.value << std::endl;
-                return 1; // Ferma al primo errore lessicale
+                return 1; 
             }
         }
-        
-        // Phase 2: Syntactic Analysis
+
         Parser parser(tokens);
         auto program = parser.parseProgram();
-        
-        // Phase 3: Execution
+ 
         Interpreter interpreter;
         interpreter.execute(*program);
         
