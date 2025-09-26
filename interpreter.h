@@ -1,6 +1,22 @@
+/**
+ * Guard Headers
+ */
 #ifndef INTERPRETER_H
 #define INTERPRETER_H
 
+/**
+ * Include for AST definitions
+ * 
+ * Include for std::unordered_map used as variable envitoment 
+ * 
+ * Include std::vector used inside Balue to represent list
+ * 
+ * Include for std::variant used in Value to store int, bool or list in one 
+ * 
+ * Include fot std::runtime_error used as base for RuntimeError
+ * 
+ * Include for std::count and std::endl used in PrintStatement visitor
+ */
 #include "ast.h"
 #include <unordered_map>
 #include <vector>
@@ -8,13 +24,19 @@
 #include <stdexcept>
 #include <iostream>
 
-// Eccezione per errori di runtime
+/**
+ * Expetion for runtime errors
+ * 
+ * Inherits from std::runtime_error and prefixes the message with "Error:"
+ */
 class RuntimeError : public std::runtime_error {
 public:
     RuntimeError(const std::string& message) : std::runtime_error("Error: " + message) {}
 };
 
-// Rappresenta un valore nel nostro interprete
+/**
+ * Rapresents a value in the Interpreter (interger, boolean or list)
+ */
 class Value {
 public:
     enum Type { INTEGER, BOOLEAN, LIST, UNDEFINED };
@@ -26,8 +48,7 @@ public:
     Value(int i) : type(INTEGER), data(i) {}
     Value(bool b) : type(BOOLEAN), data(b) {}
     Value(const std::vector<Value>& l) : type(LIST), data(l) {}
-    
-    // Getters con controllo di tipo
+
     int getInt() const {
         if (type != INTEGER) throw RuntimeError("Expected integer value");
         return std::get<int>(data);
@@ -48,7 +69,6 @@ public:
         return std::get<std::vector<Value>>(data);
     }
     
-    // Conversione a stringa per il print
     std::string toString() const {
         switch (type) {
             case INTEGER: return std::to_string(getInt());
@@ -69,28 +89,46 @@ public:
     }
 };
 
-// Eccezione speciale per break/continue
+/**
+ * Exceptions used to implement break/continue control flow
+ */
 class BreakException : public std::exception {};
 class ContinueException : public std::exception {};
 
+/**
+ * Interpreter class
+ * 
+ * Implements ASTVisitor to execute the program represented by the AST
+ * Keep a variable enviroment and current value being evaluated
+ * 
+ * Private:
+ * Symbol table for variables
+ * Current value being computed
+ * Flag to indicate if we are inside a loop
+ * 
+ * Public:
+ * Exeutes the entire program
+ * Visitor implementations for expressions
+ * Visitor impelemntations for statements
+ * 
+ * Private:
+ * Consider an expression and returns its value
+ * Executes a single statement
+ * Helper functions for unary and binary operations
+ */
 class Interpreter : public ASTVisitor {
 private:
-    // Environment per le variabili
     std::unordered_map<std::string, Value> variables;
     
-    // Stack per il valore corrente durante la valutazione
     Value currentValue;
-    
-    // Flag per controllare se siamo in un ciclo
+
     bool inLoop;
     
 public:
     Interpreter();
-    
-    // Esegue il programma
+
     void execute(Program& program);
-    
-    // Implementazioni del visitor pattern
+
     void visit(NumberLiteral& node) override;
     void visit(BooleanLiteral& node) override;
     void visit(Identifier& node) override;
@@ -111,13 +149,10 @@ public:
     void visit(Program& node) override;
     
 private:
-    // Valuta un'espressione e restituisce il valore
     Value evaluateExpression(Expression& expr);
-    
-    // Esegue una statement
+
     void executeStatement(Statement& stmt);
-    
-    // Helper per operazioni binarie
+
     Value performBinaryOperation(const Value& left, BinaryOperation::Operator op, const Value& right);
     Value performUnaryOperation(UnaryOperation::Operator op, const Value& operand);
 };
