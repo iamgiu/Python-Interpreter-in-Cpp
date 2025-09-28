@@ -113,7 +113,12 @@ void Interpreter::visit(UnaryOperation& node) {
 }
 
 /**
- * Visit VinaryOperation: evalute operands and performa operation (short-circuit for AND/OR separately)
+ * Visit VinaryOperation: evalute operands and perform operation
+ * 
+ * I implement short-circuit evaluation for AND/OR separately from the rest of the binary operations because:
+ * - THe specification explicitly requires this semantics 
+ * - I avoid unnecessary evaluation of the second operand
+ * - I maintain consistency with stanrdard Python
  */
 void Interpreter::visit(BinaryOperation& node) {
     if (node.op == BinaryOperation::Operator::AND) {

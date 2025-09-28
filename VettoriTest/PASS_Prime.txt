@@ -3,15 +3,15 @@ d = n // 2
 isprime = True
   
 while (d > 1):
-    ires = n // d;
-    nearest = ires * d;
-    remainder = n - nearest;
+    ires = n // d
+    nearest = ires * d
+    remainder = n - nearest
     
     if (isprime and remainder == 0):
         isprime = False
         break
 
-    d = d - 1;
+    d = d - 1
 
 print(isprime)
 

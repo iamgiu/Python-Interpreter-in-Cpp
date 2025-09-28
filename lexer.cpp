@@ -114,8 +114,10 @@ bool Lexer::isAlphaNum(char c) {
 
 /**
  * Recognized and creates a numeber:
- * - accepts zero alone
+ * - accepts zero alone to avoid ambiguities with octal notation or other numeric systems
  * - otherwise it must begin with a digit from 1 to 9 and can have other digits after it
+ * 
+ * This choice simplifies parsing and prevents common errors while maintaining compatibility with the project specifications
  */
 Token Lexer::makeNumber() {
     std::string numStr;
@@ -231,7 +233,13 @@ Token Lexer::makeTwoCharOperator() {
 }
 
 /**
- * Manages identation at the beginning of the line, generates IDENT/DEDENT tokens and detects mixed ot inconsistent identation errors
+ * Manages identation at the beginning of the line, generates IDENT/DEDENT tokens and detects mixed of inconsistent identation errors
+ * 
+ * Use a stack to track indentation levels as required by specifications
+ * 
+ * Treat mixing tabs and spaces on the sam eline as an error to prevent ambiguity 
+ * 
+ * Assume thay 2 spaces = 1 identation livel for compatibility with common editors, but tabs count as 1 character = 1 leverl
  */
 void Lexer::handleIndentation() {
     if (!atLineStart) return;
