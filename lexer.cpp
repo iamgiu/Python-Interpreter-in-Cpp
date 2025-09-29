@@ -186,6 +186,8 @@ Token Lexer::makeIdentifier() {
 
 /**
  * Supports two character operators (==, !=, <=, >=, //) or single-character operators (=, <, >)
+ * 
+ * I use // because in Python I need them for integer divisions
  */
 Token Lexer::makeTwoCharOperator() {
     int startLine = line;

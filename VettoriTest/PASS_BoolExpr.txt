@@ -1,9 +1,9 @@
 n = 11
-d = n / 2
+d = n // 2
 isprime = True
 
 while (d > 1):
-    ires = n / d
+    ires = n // d
     nearest = ires * d
     remainder = n - nearest
     if (isprime and remainder == 0):
